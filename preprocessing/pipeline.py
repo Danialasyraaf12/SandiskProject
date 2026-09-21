@@ -21,6 +21,8 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
 
+from preprocessing.quality import compute_quality_score
+
 
 # ---------------------------------------------------------------------------
 # Config
@@ -154,28 +156,6 @@ def balance_classes(X: pd.DataFrame, y: pd.Series):
     return X_bal, y_bal
 
 
-def compute_quality_score(X_before: pd.DataFrame, X_after: pd.DataFrame) -> dict:
-    """
-    Composite data quality score across completeness, consistency, accuracy -
-    mirrors the Data Quality Scoring Model described in the proposal (Section 6.5.2).
-    Simple heuristic version for Sprint 1; refine with domain rules in Sprint 2.
-    """
-    completeness = 1 - X_before.isnull().mean().mean()
-    consistency = 1 - (X_before.nunique(dropna=True) <= 1).mean()  # penalise constant cols
-    accuracy = 1.0  # placeholder until ground-truth validation rules exist (Sprint 2)
-
-    composite = round((completeness + consistency + accuracy) / 3, 3)
-
-    score = {
-        "completeness": round(completeness, 3),
-        "consistency": round(consistency, 3),
-        "accuracy": round(accuracy, 3),
-        "composite_score": composite
-    }
-    print(f"[compute_quality_score] {score}")
-    return score
-
-
 def run_pipeline():
     print("=" * 70)
     print("SPRINT 1 PREPROCESSING PIPELINE")
@@ -184,7 +164,8 @@ def run_pipeline():
     df = load_data(DATA_PATH)
     X, y = split_columns(df, LABEL_COL, DROP_COLS)
 
-    quality_score = compute_quality_score(X, X)  # scored on raw input
+    quality_score = compute_quality_score(X)  # scored on raw input
+    print(f"[compute_quality_score] {quality_score}")
 
     X = drop_uninformative_columns(X, HIGH_MISSING_THRESHOLD)
     X = impute_missing_values(X, MICE_THRESHOLD)
@@ -202,6 +183,7 @@ def run_pipeline():
     print(f"Final dataset shape: {X_balanced.shape}")
     print(f"Quality score: {quality_score['composite_score']}  "
           f"(Sprint 1 gate requires >= 0.80)")
+    print(f"Issues detected: {len(quality_score['issues'])}")
 
     return X_balanced, y_balanced, outlier_flags, quality_score
 
